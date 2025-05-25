@@ -54,6 +54,8 @@ const complaintSchema = new mongoose.Schema(
       enum: ["private", "public"],
       default: "private",
     },
+
+    
     attachments: [
       {
         url: {

@@ -1,5 +1,5 @@
 const Complaint = require("../models/complaintSchema");
-const ComplaintAction = require("../models/action"); // ✅ Import ComplaintAction
+const ComplaintAction = require("../models/action");
 
 // Submit a new complaint
 const submitComplaint = async (req, res) => {
@@ -25,16 +25,33 @@ const submitComplaint = async (req, res) => {
   }
 };
 
-// Get complaints (student = own, staff = all)
+// Get complaints (student = own, staff = all) with attached actions
 const getComplaints = async (req, res) => {
   try {
     const filter =
       req.user.role === "student" ? { submittedBy: req.user._id } : {};
 
-    const complaints = await Complaint.find(filter).populate(
-      "submittedBy",
-      "firstName rollNumber role"
-    );
+    let complaints = await Complaint.find(filter)
+      .populate("submittedBy", "firstName rollNumber role")
+      .lean();
+
+    const complaintIds = complaints.map(c => c._id);
+
+    const actions = await ComplaintAction.find({ complaintId: { $in: complaintIds } })
+      .populate("actionTakenBy", "firstName role")  // populate actionTakenBy name and role
+      .lean();
+
+    const actionsMap = actions.reduce((acc, action) => {
+      const id = action.complaintId.toString();
+      if (!acc[id]) acc[id] = [];
+      acc[id].push(action);
+      return acc;
+    }, {});
+
+    complaints = complaints.map(complaint => ({
+      ...complaint,
+      actions: actionsMap[complaint._id.toString()] || [],
+    }));
 
     res.status(200).send(complaints);
   } catch (err) {
@@ -57,7 +74,6 @@ const updateComplaintStatus = async (req, res) => {
     complaint.status = status;
     await complaint.save();
 
-    // Prepare action object
     const actionData = {
       complaintId: complaint._id,
       status,
@@ -66,11 +82,10 @@ const updateComplaintStatus = async (req, res) => {
       note,
     };
 
-    // Include meeting only if provided and scheduled
     if (meeting && meeting.scheduled) {
-      actionData.meeting = {
-        scheduled: true,
-        date: meeting.date,
+      actionData.meetingDetails = {
+        datetime: meeting.date,      // use 'datetime' to match frontend
+        location: meeting.location || "",
         note: meeting.note || "",
       };
     }
@@ -82,7 +97,6 @@ const updateComplaintStatus = async (req, res) => {
     res.status(400).send("ERROR: " + err.message);
   }
 };
-
 
 module.exports = {
   submitComplaint,
