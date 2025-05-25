@@ -3,6 +3,9 @@ const connectDB = require("./config/database");
 const app = express();
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const path = require("path");
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Middleware
 app.use(cors({

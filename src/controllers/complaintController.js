@@ -6,11 +6,16 @@ const submitComplaint = async (req, res) => {
   try {
     const { title, description, category } = req.body;
 
+    const attachments = req.files?.map((file) => ({
+      url: `${req.protocol}://${req.get("host")}/uploads/${file.filename}`,
+    })) || [];
+
     const complaint = new Complaint({
       title,
       description,
       category,
       submittedBy: req.user._id,
+      attachments,
     });
 
     await complaint.save();
