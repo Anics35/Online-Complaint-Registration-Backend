@@ -15,7 +15,7 @@ const complaintActionSchema = new mongoose.Schema(
     status: {
       type: String,
       required: true,
-      enum: ["pending", "under review", "resolved", "rejected"],
+      enum: ["pending", "under review", "in-progress","resolved", "rejected"],
     },
     note: {
       type: String,

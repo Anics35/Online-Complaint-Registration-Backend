@@ -6,8 +6,8 @@ const submitComplaint = async (req, res) => {
   try {
     const { title, description, category } = req.body;
 
-    const attachments = req.files?.map((file) => ({
-      url: `${req.protocol}://${req.get("host")}/uploads/${file.filename}`,
+    const attachments = req.files?.map(file => ({
+      url: `${req.protocol}://${req.get("host")}/uploads/${file.filename}`
     })) || [];
 
     const complaint = new Complaint({
@@ -19,26 +19,25 @@ const submitComplaint = async (req, res) => {
     });
 
     await complaint.save();
-    res.status(201).send("Complaint submitted successfully");
+    return res.status(201).send("Complaint submitted successfully");
   } catch (err) {
-    res.status(400).send("ERROR: " + err.message);
+    return res.status(400).send("ERROR: " + err.message);
   }
 };
 
-// Get complaints (student = own, staff = all) with attached actions
+// Get complaints with actions
 const getComplaints = async (req, res) => {
   try {
-    const filter =
-      req.user.role === "student" ? { submittedBy: req.user._id } : {};
+    const filter = req.user.role === "student" ? { submittedBy: req.user._id } : {};
 
-    let complaints = await Complaint.find(filter)
+    const complaints = await Complaint.find(filter)
       .populate("submittedBy", "firstName rollNumber role")
       .lean();
 
     const complaintIds = complaints.map(c => c._id);
 
     const actions = await ComplaintAction.find({ complaintId: { $in: complaintIds } })
-      .populate("actionTakenBy", "firstName role")  // populate actionTakenBy name and role
+      .populate("actionTakenBy", "firstName role")
       .lean();
 
     const actionsMap = actions.reduce((acc, action) => {
@@ -48,18 +47,19 @@ const getComplaints = async (req, res) => {
       return acc;
     }, {});
 
-    complaints = complaints.map(complaint => ({
+    const complaintsWithActions = complaints.map(complaint => ({
       ...complaint,
-      actions: actionsMap[complaint._id.toString()] || [],
+      actions: actionsMap[complaint._id.toString()] || []
     }));
 
-    res.status(200).send(complaints);
+    return res.status(200).send(complaintsWithActions);
   } catch (err) {
-    res.status(400).send("ERROR: " + err.message);
+    return res.status(400).send("ERROR: " + err.message);
   }
 };
 
-// Update complaint status and log action
+// Update complaint status and add action log
+
 const updateComplaintStatus = async (req, res) => {
   try {
     const { complaintId } = req.params;
@@ -74,21 +74,28 @@ const updateComplaintStatus = async (req, res) => {
     complaint.status = status;
     await complaint.save();
 
+  const meetingDetails = meeting && meeting.scheduled
+  ? {
+      scheduled: true,
+      datetime: new Date(meeting.datetime),
+      location: meeting.location || "",
+      note: meeting.note || ""
+    }
+  : {
+      scheduled: false,
+      datetime: null,
+      location: "",
+      note: ""
+    };
+
     const actionData = {
       complaintId: complaint._id,
       status,
       actionTakenBy: req.user._id,
       remarks: `Status changed to '${status}' by ${req.user.role}`,
       note,
+      meetingDetails,
     };
-
-    if (meeting && meeting.scheduled) {
-      actionData.meetingDetails = {
-        datetime: meeting.date,      // use 'datetime' to match frontend
-        location: meeting.location || "",
-        note: meeting.note || "",
-      };
-    }
 
     await ComplaintAction.create(actionData);
 
@@ -97,6 +104,7 @@ const updateComplaintStatus = async (req, res) => {
     res.status(400).send("ERROR: " + err.message);
   }
 };
+
 
 module.exports = {
   submitComplaint,
