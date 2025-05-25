@@ -23,9 +23,15 @@ const complaintActionSchema = new mongoose.Schema(
     },
     remarks: {
       type: String,
+      default: "",
     },
     attachmentUrl: {
       type: String,
+    },
+    meeting: {
+      scheduled: { type: Boolean, default: false },
+      date: { type: Date },
+      note: { type: String, default: "" },
     },
   },
   { timestamps: true }

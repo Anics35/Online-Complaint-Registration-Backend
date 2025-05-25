@@ -46,8 +46,7 @@ const getComplaints = async (req, res) => {
 const updateComplaintStatus = async (req, res) => {
   try {
     const { complaintId } = req.params;
-    const { status } = req.body;
-    const { note } = req.body;
+    const { status, note, meeting } = req.body;
 
     if (req.user.role === "student")
       throw new Error("Unauthorized: Only Panel/Admin can update status");
@@ -58,21 +57,32 @@ const updateComplaintStatus = async (req, res) => {
     complaint.status = status;
     await complaint.save();
 
-    // ✅ Log the update in ComplaintAction
-   await ComplaintAction.create({
-  complaintId: complaint._id,
-  status: status,
-  actionTakenBy: req.user._id,
-  remarks: `Status changed to '${status}' by ${req.user.role}`,
-  note:note,
+    // Prepare action object
+    const actionData = {
+      complaintId: complaint._id,
+      status,
+      actionTakenBy: req.user._id,
+      remarks: `Status changed to '${status}' by ${req.user.role}`,
+      note,
+    };
 
-});
+    // Include meeting only if provided and scheduled
+    if (meeting && meeting.scheduled) {
+      actionData.meeting = {
+        scheduled: true,
+        date: meeting.date,
+        note: meeting.note || "",
+      };
+    }
+
+    await ComplaintAction.create(actionData);
 
     res.status(200).send("Complaint status updated and action logged");
   } catch (err) {
     res.status(400).send("ERROR: " + err.message);
   }
 };
+
 
 module.exports = {
   submitComplaint,
