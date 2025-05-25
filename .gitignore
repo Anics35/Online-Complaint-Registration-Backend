@@ -1,1 +1,5 @@
 node_modules
+# Ignore uploads and archives
+src/uploads/
+src.tar
+src.zip
